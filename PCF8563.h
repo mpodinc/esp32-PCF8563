@@ -47,7 +47,7 @@ class Pcf8563 {
             .scl_io_num = scl,
             .sda_pullup_en = GPIO_PULLUP_ENABLE,
             .scl_pullup_en = GPIO_PULLUP_ENABLE,
-            .master = {.clk_speed = 10000},
+            .master = {.clk_speed = 400000},
             .clk_flags = 0,
         } {}
 

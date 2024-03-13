@@ -59,6 +59,13 @@ esp_err_t Pcf8563::Setup(bool with_outputs) {
     return ret;
   }
 
+  // Turn off CLKOUT pin.
+  const uint8_t outputs = with_outputs ? 0x80 : 0;
+  ret = Write(0x0d, &outputs, 1);
+  if (ret != ESP_OK) {
+    return ret;
+  }
+
   return ESP_OK;
 }
 
