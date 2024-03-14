@@ -1,6 +1,7 @@
 
 #include "PCF8563.h"
 
+#include <esp_log.h>
 #include <stdlib.h>
 #include <sys/time.h>
 #include <time.h>
@@ -9,6 +10,7 @@
 #include "esp_system.h"
 
 namespace {
+const char *TAG = "pcf8563";
 constexpr auto PCF8563_READ_ADDR = 0xA3;
 constexpr auto PCF8563_WRITE_ADDR = 0xA2;
 
@@ -46,7 +48,8 @@ esp_err_t Pcf8563::Setup(bool with_outputs) {
   i2c_param_config(port_, &i2c_config_);
   esp_err_t ret = i2c_driver_install(port_, i2c_config_.mode, 0, 0, 0);
   if (ret != ESP_OK) {
-    return ret;
+    ESP_LOGW(TAG, "Error installing driver, assuming already installed");
+    // return ret;
   }
   uint8_t tmp = 0b00000000;
   ret = Write(0x00, &tmp, 1);
