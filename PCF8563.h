@@ -39,7 +39,10 @@ class Pcf8563 {
     kTimerFreqp60 = 3,
   };
 
-  explicit Pcf8563(i2c_port_t i2c_port, int sda, int scl)
+  // If SDA and SCL not specified, assume driver already installed on these
+  // ports.
+  explicit Pcf8563(i2c_port_t i2c_port, int sda = GPIO_NUM_MAX,
+                   int scl = GPIO_NUM_MAX)
       : port_(i2c_port),
         i2c_config_{
             .mode = I2C_MODE_MASTER,

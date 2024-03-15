@@ -45,11 +45,15 @@ esp_err_t Pcf8563::Read(uint8_t addr, uint8_t *data, size_t count) {
 }
 
 esp_err_t Pcf8563::Setup(bool with_outputs) {
-  i2c_param_config(port_, &i2c_config_);
-  esp_err_t ret = i2c_driver_install(port_, i2c_config_.mode, 0, 0, 0);
-  if (ret != ESP_OK) {
-    ESP_LOGW(TAG, "Error installing driver, assuming already installed");
-    // return ret;
+  esp_err_t ret;
+  if (i2c_config_.sda_io_num != GPIO_NUM_MAX) {
+    // Configure bus.
+    i2c_param_config(port_, &i2c_config_);
+    if (ret = i2c_driver_install(port_, i2c_config_.mode, 0, 0, 0);
+        ret != ESP_OK) {
+      ESP_LOGW(TAG, "Error installing driver");
+      return ret;
+    }
   }
   uint8_t tmp = 0b00000000;
   ret = Write(0x00, &tmp, 1);
