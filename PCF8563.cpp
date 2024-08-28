@@ -36,8 +36,8 @@ esp_err_t Pcf8563::Setup(i2c_master_bus_handle_t bus, bool with_outputs) {
   const i2c_device_config_t dev_cfg = {
       .dev_addr_length = I2C_ADDR_BIT_LEN_7,
       .device_address = PCF8563_ADDR,
-      .scl_speed_hz = 100000,
-      .scl_wait_us = 1000 * 1000,
+      .scl_speed_hz = 400000,
+      .scl_wait_us = 100 * 1000,
       .flags = {.disable_ack_check = false},
   };
   if (const auto ret = i2c_master_bus_add_device(bus, &dev_cfg, &dev_handle_);
