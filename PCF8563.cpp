@@ -6,69 +6,61 @@
 #include <sys/time.h>
 #include <time.h>
 
-#include "driver/i2c.h"
+#include "driver/i2c_master.h"
 #include "esp_system.h"
 
 namespace {
 const char *TAG = "pcf8563";
-constexpr auto PCF8563_READ_ADDR = 0xA3;
-constexpr auto PCF8563_WRITE_ADDR = 0xA2;
+constexpr auto PCF8563_ADDR = 0x51;
 
 constexpr auto BinToBCD(uint8_t bin) { return ((bin / 10) << 4) + (bin % 10); }
 }  // namespace
 
-esp_err_t Pcf8563::Write(uint8_t addr, const uint8_t *data, size_t count) {
-  i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-  i2c_master_start(cmd);
-  i2c_master_write_byte(cmd, PCF8563_WRITE_ADDR, true);
-  i2c_master_write_byte(cmd, addr, true);
-  i2c_master_write(cmd, data, count, true);
-  i2c_master_stop(cmd);
-  esp_err_t ret = i2c_master_cmd_begin(port_, cmd, 1000 / portTICK_PERIOD_MS);
-  i2c_cmd_link_delete(cmd);
-  return ret;
-}
-
-esp_err_t Pcf8563::Read(uint8_t addr, uint8_t *data, size_t count) {
-  i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-  i2c_master_start(cmd);
-  i2c_master_write_byte(cmd, PCF8563_WRITE_ADDR, true);
-  i2c_master_write_byte(cmd, addr, true);
-  i2c_master_start(cmd);
-  i2c_master_write_byte(cmd, PCF8563_READ_ADDR, true);
-  i2c_master_read(cmd, data, count, I2C_MASTER_LAST_NACK);
-  i2c_master_stop(cmd);
-  esp_err_t ret = i2c_master_cmd_begin(port_, cmd, 1000 / portTICK_PERIOD_MS);
-  i2c_cmd_link_delete(cmd);
-
-  return ret;
-}
-
-esp_err_t Pcf8563::Setup(bool with_outputs) {
-  esp_err_t ret;
-  if (i2c_config_.sda_io_num != GPIO_NUM_MAX) {
-    // Configure bus.
-    i2c_param_config(port_, &i2c_config_);
-    if (ret = i2c_driver_install(port_, i2c_config_.mode, 0, 0, 0);
-        ret != ESP_OK) {
-      ESP_LOGW(TAG, "Error installing driver");
-      return ret;
-    }
+template <size_t size>
+esp_err_t Pcf8563::Write(uint8_t addr, const uint8_t *data) {
+  uint8_t all_data[1 + size];
+  all_data[0] = addr;
+  for (int i=0; i < size; i++) {
+    all_data[i+1] = data[i];
   }
+  return i2c_master_transmit(dev_handle_, all_data, sizeof(all_data), 1000);
+}
+
+esp_err_t Pcf8563::Read(uint8_t addr, uint8_t *data, size_t size) {
+  return i2c_master_transmit_receive(dev_handle_, &addr, 1, data, size,
+                                     1000);
+
+}
+
+esp_err_t Pcf8563::Setup(i2c_master_bus_handle_t bus, bool with_outputs) {
+  const i2c_device_config_t dev_cfg = {
+      .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+      .device_address = PCF8563_ADDR,
+      .scl_speed_hz = 100000,
+      .scl_wait_us = 1000 * 1000,
+      .flags = {.disable_ack_check = false},
+  };
+  if (const auto ret = i2c_master_bus_add_device(bus, &dev_cfg, &dev_handle_);
+      ret != ESP_OK) {
+    ESP_LOGE(TAG, "Adding I2C device failed with: %d", ret);
+    return ret;
+  }
+
+  esp_err_t ret = 0;
   uint8_t tmp = 0b00000000;
-  ret = Write(0x00, &tmp, 1);
+  ret = Write<sizeof(tmp)>(0x00, &tmp);
   if (ret != ESP_OK) {
     return ret;
   }
   const uint8_t mode = with_outputs ? 0b11 : 0;
-  ret = Write(0x01, &mode, 1);
+  ret = Write<sizeof(mode)>(0x01, &mode);
   if (ret != ESP_OK) {
     return ret;
   }
 
   // Turn off CLKOUT pin.
   const uint8_t outputs = with_outputs ? 0x80 : 0;
-  ret = Write(0x0d, &outputs, 1);
+  ret = Write<sizeof(outputs)>(0x0d, &outputs);
   if (ret != ESP_OK) {
     return ret;
   }
@@ -84,7 +76,7 @@ esp_err_t Pcf8563::GetAndClearFlags(int *out) {
     return ret;
   }
   const uint8_t cleared = flags & 0b00010011;
-  ret = Write(0x01, &cleared, 1);
+  ret = Write<sizeof(cleared)>(0x01, &cleared);
   if (ret != ESP_OK) {
     return ret;
   }
@@ -94,7 +86,7 @@ esp_err_t Pcf8563::GetAndClearFlags(int *out) {
 
 esp_err_t Pcf8563::SetClockOut(ClkOutFreq mode) {
   const uint8_t value = mode | (1 << 7);
-  esp_err_t ret = Write(0x0D, &value, 1);
+  esp_err_t ret = Write<sizeof(value)>(0x0D, &value);
   if (ret != ESP_OK) {
     return ret;
   }
@@ -103,11 +95,11 @@ esp_err_t Pcf8563::SetClockOut(ClkOutFreq mode) {
 
 esp_err_t Pcf8563::SetTimer(TimerFreq mode, uint8_t count) {
   const uint8_t value = mode | (1 << 7);
-  esp_err_t ret = Write(0x0E, &value, 1);
+  esp_err_t ret = Write<sizeof(value)>(0x0E, &value);
   if (ret != ESP_OK) {
     return ret;
   }
-  ret = Write(0x0F, &count, 1);
+  ret = Write<sizeof(value)>(0x0F, &count);
   if (ret != ESP_OK) {
     return ret;
   }
@@ -142,7 +134,7 @@ esp_err_t Pcf8563::SetAlarm(Pcf8563::Alarm *alarm, bool match_mins,
   buffer[2] = BinToBCD(alarm->day) | (match_day ? 0x80 : 0);
   buffer[3] = BinToBCD(alarm->weekday) | (match_weekday ? 0x80 : 0);
 
-  esp_err_t ret = Write(0x09, buffer, sizeof(buffer));
+  esp_err_t ret = Write<sizeof(buffer)>(0x09, buffer);
   if (ret != ESP_OK) {
     return ret;
   }
@@ -189,7 +181,7 @@ esp_err_t Pcf8563::SetDateTime(Pcf8563::DateTime *dateTime) {
     buffer[6] = BinToBCD(dateTime->year - 1900);
   }
 
-  esp_err_t ret = Write(0x02, buffer, sizeof(buffer));
+  esp_err_t ret = Write<sizeof(buffer)>(0x02, buffer);
   if (ret != ESP_OK) {
     return ret;
   }

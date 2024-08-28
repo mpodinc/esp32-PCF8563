@@ -3,7 +3,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "driver/i2c.h"
+#include "driver/i2c_master.h"
 #include "esp_system.h"
 
 class Pcf8563 {
@@ -39,23 +39,8 @@ class Pcf8563 {
     kTimerFreqp60 = 3,
   };
 
-  // If SDA and SCL not specified, assume driver already installed on these
-  // ports.
-  explicit Pcf8563(i2c_port_t i2c_port, int sda = GPIO_NUM_MAX,
-                   int scl = GPIO_NUM_MAX)
-      : port_(i2c_port),
-        i2c_config_{
-            .mode = I2C_MODE_MASTER,
-            .sda_io_num = sda,
-            .scl_io_num = scl,
-            .sda_pullup_en = GPIO_PULLUP_ENABLE,
-            .scl_pullup_en = GPIO_PULLUP_ENABLE,
-            .master = {.clk_speed = 400000},
-            .clk_flags = 0,
-        } {}
-
   // Sets up the device, must be called first.
-  esp_err_t Setup(bool with_outputs);
+  esp_err_t Setup(i2c_master_bus_handle_t bus, bool with_outputs);
 
   // Returns a bitwise OR of InterruptFlags.
   esp_err_t GetAndClearFlags(int *flags);
@@ -82,9 +67,10 @@ class Pcf8563 {
   esp_err_t GetDateTime(DateTime *dateTime);
 
  private:
-  esp_err_t Write(uint8_t addr, const uint8_t *data, size_t count);
-  esp_err_t Read(uint8_t addr, uint8_t *data, size_t count);
+  template <size_t size>
+  esp_err_t Write(uint8_t addr, const uint8_t *data);
 
-  const i2c_port_t port_;
-  const i2c_config_t i2c_config_;
+  esp_err_t Read(uint8_t addr, uint8_t *data, size_t size);
+
+  i2c_master_dev_handle_t dev_handle_ = nullptr;
 };
