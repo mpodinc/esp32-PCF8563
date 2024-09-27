@@ -20,16 +20,14 @@ template <size_t size>
 esp_err_t Pcf8563::Write(uint8_t addr, const uint8_t *data) {
   uint8_t all_data[1 + size];
   all_data[0] = addr;
-  for (int i=0; i < size; i++) {
-    all_data[i+1] = data[i];
+  for (int i = 0; i < size; i++) {
+    all_data[i + 1] = data[i];
   }
   return i2c_master_transmit(dev_handle_, all_data, sizeof(all_data), 1000);
 }
 
 esp_err_t Pcf8563::Read(uint8_t addr, uint8_t *data, size_t size) {
-  return i2c_master_transmit_receive(dev_handle_, &addr, 1, data, size,
-                                     1000);
-
+  return i2c_master_transmit_receive(dev_handle_, &addr, 1, data, size, 1000);
 }
 
 esp_err_t Pcf8563::Setup(i2c_master_bus_handle_t bus, bool with_outputs) {
@@ -161,7 +159,7 @@ esp_err_t Pcf8563::GetAlarm(Pcf8563::Alarm *alarm) {
 esp_err_t Pcf8563::SetDateTime(Pcf8563::DateTime *dateTime) {
   if (dateTime->second >= 60 || dateTime->minute >= 60 ||
       dateTime->hour >= 24 || dateTime->day > 32 || dateTime->weekday > 6 ||
-      dateTime->month > 12 || dateTime->year < 1900 || dateTime->year >= 2100) {
+      dateTime->month > 12 || dateTime->year < 2000 || dateTime->year >= 2200) {
     return ESP_ERR_INVALID_ARG;
   }
 
@@ -174,11 +172,11 @@ esp_err_t Pcf8563::SetDateTime(Pcf8563::DateTime *dateTime) {
   buffer[4] = BinToBCD(dateTime->weekday) & 0x07;
   buffer[5] = BinToBCD(dateTime->month) & 0x1F;
 
-  if (dateTime->year >= 2000) {
+  if (dateTime->year >= 2100) {
     buffer[5] |= 0x80;
-    buffer[6] = BinToBCD(dateTime->year - 2000);
+    buffer[6] = BinToBCD(dateTime->year - 2100);
   } else {
-    buffer[6] = BinToBCD(dateTime->year - 1900);
+    buffer[6] = BinToBCD(dateTime->year - 2000);
   }
 
   esp_err_t ret = Write<sizeof(buffer)>(0x02, buffer);
@@ -204,7 +202,7 @@ esp_err_t Pcf8563::GetDateTime(Pcf8563::DateTime *dateTime) {
   dateTime->day = (((buffer[3] >> 4) & 0x03) * 10) + (buffer[3] & 0x0F);
   dateTime->weekday = (buffer[4] & 0x07);
   dateTime->month = ((buffer[5] >> 4) & 0x01) * 10 + (buffer[5] & 0x0F);
-  dateTime->year = 1900 + ((buffer[6] >> 4) & 0x0F) * 10 + (buffer[6] & 0x0F);
+  dateTime->year = 2000 + ((buffer[6] >> 4) & 0x0F) * 10 + (buffer[6] & 0x0F);
 
   if (buffer[5] & 0x80) {
     dateTime->year += 100;
