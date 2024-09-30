@@ -187,7 +187,7 @@ esp_err_t Pcf8563::SetDateTime(Pcf8563::DateTime *dateTime) {
   return 0;
 }
 
-esp_err_t Pcf8563::GetDateTime(Pcf8563::DateTime *dateTime) {
+esp_err_t Pcf8563::GetDateTime(Pcf8563::DateTime *dateTime, bool *untrusted) {
   uint8_t buffer[7];
   esp_err_t ret;
 
@@ -208,9 +208,8 @@ esp_err_t Pcf8563::GetDateTime(Pcf8563::DateTime *dateTime) {
     dateTime->year += 100;
   }
 
-  if (buffer[0] & 0x80)  // Clock integrity not guaranted
-  {
-    return ESP_ERR_INVALID_RESPONSE;
+  if (untrusted) {
+    *untrusted = buffer[0] & 0x80;  // Clock integrity not guaranted
   }
 
   return ESP_OK;

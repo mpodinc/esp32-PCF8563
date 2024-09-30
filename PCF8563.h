@@ -64,7 +64,7 @@ class Pcf8563 {
   esp_err_t SetDateTime(DateTime *dateTime);
 
   // Gets the set data.
-  esp_err_t GetDateTime(DateTime *dateTime);
+  esp_err_t GetDateTime(DateTime *dateTime, bool *untrusted = nullptr);
 
  private:
   template <size_t size>
